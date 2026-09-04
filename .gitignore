@@ -1,6 +1,9 @@
 # Node dependencies
 node_modules/
 npm-debug.log*
+.next/
+/deploy/data/
+/public/download/
 
 # React Build output
 frontend/build/

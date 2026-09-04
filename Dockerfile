@@ -1,82 +1,39 @@
-# Author: Naveen Duhan
-# --- STAGE 1: Frontend Build ---
-FROM node:20-slim AS frontend-builder
-WORKDIR /app/frontend
+FROM node:22-bookworm-slim AS base
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY frontend/package.json frontend/package-lock.json ./
+FROM base AS dependencies
+COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY frontend/ ./
+FROM base AS builder
+ARG NEXT_PUBLIC_BASE_PATH=/deepnec-2.0
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
 RUN npm run build
 
-# --- STAGE 2: Backend Dependencies ---
-FROM node:20-slim AS backend-builder
-WORKDIR /app/backend
-
-COPY backend/package.json backend/package-lock.json ./
-RUN npm ci --omit=dev
-
-# --- STAGE 3: Final Hardened Runtime Container ---
-FROM python:3.11-slim
-
-# Install system utilities and curl for health check
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt-get/lists/*
-
-# Install Node.js 20 LTS
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    rm -rf /var/lib/apt-get/lists/*
-
-# Create dedicated non-root application user
-RUN groupadd -r deepnec && useradd -r -g deepnec -d /app -s /bin/bash deepnec
+FROM node:22-bookworm-slim AS runner
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 1001 nodejs \
+    && useradd --system --uid 1001 --gid nodejs --home-dir /app nextjs
 
 WORKDIR /app
-
-# Fetch a versioned DeepNEC CLI release rather than duplicating it in this repo.
-ARG DEEPNEC_REPO=usubioinfo/deepnec-2.0
-ARG DEEPNEC_REF=v2.0.2
-RUN mkdir -p /app/backend/deepnec-2.0 && \
-    curl -fsSL "https://github.com/${DEEPNEC_REPO}/archive/${DEEPNEC_REF}.tar.gz" \
-      | tar -xz -C /app/backend/deepnec-2.0 --strip-components=1 && \
-    pip install --no-cache-dir -e /app/backend/deepnec-2.0
-
-# Install the separately licensed S4PRED component from a pinned upstream commit
-# and verify both its weights and a real inference before completing the image.
-ARG S4PRED_REPO=psipred/s4pred
-ARG S4PRED_REF=5bc16ee55d98015ca4bbdc6741ab0c64f6f7744b
-ARG S4PRED_WEIGHTS_URL=https://bioinf.cs.ucl.ac.uk/downloads/s4pred/weights.tar.gz
-RUN mkdir -p /s4pred && \
-    curl -fsSL "https://github.com/${S4PRED_REPO}/archive/${S4PRED_REF}.tar.gz" \
-      | tar -xz -C /s4pred --strip-components=1 && \
-    curl -fsSL "$S4PRED_WEIGHTS_URL" -o /tmp/s4pred-weights.tar.gz && \
-    echo "e04ad7d10b61551f7e07a86b65bb88dc  /tmp/s4pred-weights.tar.gz" | md5sum -c - && \
-    tar -xzf /tmp/s4pred-weights.tar.gz -C /s4pred && \
-    rm -f /tmp/s4pred-weights.tar.gz && \
-    python3 /s4pred/run_model.py -T 1 -t horiz /s4pred/example/1qys.fas > /tmp/s4pred-smoke.horiz && \
-    grep -q '^Pred:' /tmp/s4pred-smoke.horiz && \
-    rm -f /tmp/s4pred-smoke.horiz
-
-# Copy built frontend assets and backend
-COPY --from=frontend-builder /app/frontend/build /app/backend/frontend/build
-COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
-COPY backend /app/backend
-
-# Set up temporary directories with correct ownership
-RUN mkdir -p /app/backend/src/prediction/tmp && \
-    chown -R deepnec:deepnec /app
-
-USER deepnec
-
-WORKDIR /app/backend
-ENV PORT=3365
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3365
+ENV HOSTNAME=0.0.0.0
 
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+RUN mkdir -p /app/data/jobs && chown -R nextjs:nodejs /app/data
+
+USER nextjs
 EXPOSE 3365
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3365/api/jobs/health || exit 1
-
-CMD ["node", "index.js"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "server.js"]

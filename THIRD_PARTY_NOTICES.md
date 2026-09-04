@@ -2,7 +2,7 @@
 
 ## S4PRED
 
-DeepNEC 2.0 Web integrates [S4PRED](https://github.com/psipred/s4pred) for single-sequence secondary-structure prediction. S4PRED is maintained by the PSIPRED team and distributed under the GNU General Public License, version 3. Its source and complete license text are included in the `s4pred` submodule. The Docker build downloads the official S4PRED model weights and verifies the upstream MD5 checksum before extraction.
+The previous DeepNEC web implementation integrated [S4PRED](https://github.com/psipred/s4pred) for single-sequence secondary-structure prediction. Its source remains in the legacy `s4pred` submodule for attribution and migration history, but the Next.js 2.1 production application and Docker image do not build, download, or execute S4PRED.
 
 S4PRED should be cited as: Moffat L and Jones DT (2021), “Increasing the accuracy of single sequence prediction methods using a deep semi-supervised learning framework,” *Bioinformatics* 37(21):3744–3751. https://doi.org/10.1093/bioinformatics/btab337
 

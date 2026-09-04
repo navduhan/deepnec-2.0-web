@@ -1,0 +1,34 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { BookOpen, CloudDownload, FlaskConical, HelpCircle, Table2 } from 'lucide-react';
+
+const links = [
+  { name: 'About', href: '/', icon: BookOpen },
+  { name: 'Prediction', href: '/prediction', icon: FlaskConical },
+  { name: 'Results', href: '/results', icon: Table2 },
+  { name: 'Download', href: '/download', icon: CloudDownload },
+  { name: 'Help', href: '/help', icon: HelpCircle },
+];
+
+export default function Navbar() {
+  const pathname = usePathname();
+  return (
+    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-white/95 backdrop-blur">
+      <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="group flex items-center gap-3" aria-label="DeepNEC home">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--navy)] text-sm font-black text-white shadow-sm">DN</span>
+          <span className="font-display text-xl font-semibold tracking-tight text-[var(--navy)]">DeepNEC <i className="font-semibold text-[var(--pink)]">2.0</i></span>
+        </Link>
+        <nav className="flex items-center gap-1 sm:gap-5" aria-label="Primary navigation">
+          {links.map(({ name, href, icon: Icon }) => {
+            const active = pathname === href;
+            return <Link key={href} href={href} className={`nav-link ${active ? 'nav-link-active' : ''}`}><Icon className="h-4 w-4" /><span className="hidden sm:inline">{name}</span></Link>;
+          })}
+        </nav>
+        <a href="https://www.usu.edu" target="_blank" rel="noreferrer" className="hidden text-right text-[11px] font-black uppercase leading-tight tracking-[0.12em] text-[var(--navy)] lg:block">Utah State<br/><span className="font-semibold tracking-[0.08em]">University</span></a>
+      </div>
+    </header>
+  );
+}

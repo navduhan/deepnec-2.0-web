@@ -1,13 +1,13 @@
-# Author: Naveen Duhan
 .git
 .github
-**/node_modules
-frontend/build
-backend/src/prediction/tmp/*
-backend/deepnec-2.0
-**/__pycache__
-**/*.pyc
-**/.venv
-s4pred/.git
-s4pred/weights
-s4pred/weights.tar.gz
+.next
+node_modules
+frontend
+backend
+s4pred
+deploy/data
+public/download
+.env*
+npm-debug.log*
+Dockerfile*
+README.md

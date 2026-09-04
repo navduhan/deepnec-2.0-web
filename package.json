@@ -1,8 +1,32 @@
 {
   "name": "deepnec-2.0-web",
-  "version": "2.0.0",
-  "description": "DeepNEC 2.0 Web Application Repository",
+  "version": "2.1.0",
+  "description": "DeepNEC 2.0 secure web application and HPC prediction gateway",
   "author": "Naveen Duhan",
   "license": "GPL-3.0-only",
-  "private": true
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "next": "16.3.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/ssh2": "^1.15.5",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.3",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
 }

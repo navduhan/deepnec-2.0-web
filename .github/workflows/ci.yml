@@ -1,4 +1,3 @@
-# Author: Naveen Duhan
 name: CI
 
 on:
@@ -6,23 +5,15 @@ on:
   pull_request:
 
 jobs:
-  web-tests:
+  web:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        component: [backend, frontend]
-    defaults:
-      run:
-        working-directory: ${{ matrix.component }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-          cache-dependency-path: ${{ matrix.component }}/package-lock.json
       - run: npm ci
-      - run: npm test
-      - if: matrix.component == 'frontend'
-        run: npm run build
+      - run: npm run lint
+      - run: npm run build
       - run: npm audit --audit-level=high
