@@ -40,6 +40,7 @@ services:
       TURNSTILE_REQUIRED: ${TURNSTILE_REQUIRED:-true}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?set TURNSTILE_SECRET_KEY}
       JOB_OWNER_HMAC_SECRET: ${JOB_OWNER_HMAC_SECRET:?set JOB_OWNER_HMAC_SECRET}
+      SWISS_MODEL_TOKEN: ${SWISS_MODEL_TOKEN:-}
       LOCAL_FALLBACK_ENABLED: "false"
     volumes:
       - ../public/download:/app/public/download:ro,Z

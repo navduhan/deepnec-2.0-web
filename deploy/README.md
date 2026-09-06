@@ -23,7 +23,7 @@ chmod 0600 /absolute/path/to/dedicated-private-key
 
 `ssh-keyscan` discovers a key but does not establish trust by itself. Password authentication is not supported by this deployment.
 
-Install `deploy/hpc/run_deepnec_web.slurm` on the cluster and set `BIOCLUSTER_REMOTE_SCRIPT` to its absolute path. The script accepts `input.fasta level model output-directory`, uses the pinned final tool snapshot, writes tab-delimited results only under the supplied output directory, and returns a nonzero exit code on failure. Update its site-specific project, Python, and cache paths before deployment if the HPC layout changes.
+Install `deploy/hpc/run_deepnec_web.slurm` on the cluster and set `BIOCLUSTER_REMOTE_SCRIPT` to its absolute path. The script accepts `input.fasta level pathway model output-directory`, uses the pinned final tool snapshot, writes tab-delimited results only under the supplied output directory, and returns a nonzero exit code on failure. Update its site-specific project, Python, and cache paths before deployment if the HPC layout changes.
 
 ## Start
 
@@ -69,6 +69,10 @@ Private results are retained for 30 days by default (`PREDICTION_JOB_RETENTION_M
 Run `crontab -e` as the same unprivileged user that owns `deploy/data/jobs`; do not install this in root's crontab. The application also prunes expired directories when accepting a new job.
 
 Place release archives in `public/download/` only if direct downloads should be enabled. The directory is mounted at runtime and is never stored in Git or baked into the image.
+
+## Structure prediction
+
+The application image installs the pinned S4PRED source and verified model weights during the Docker build using `deploy/install-s4pred.sh`. Secondary-structure requests therefore run inside the application container. Tertiary structures use ESMFold for sequences up to 400 residues and SWISS-MODEL for longer proteins. Set `SWISS_MODEL_TOKEN` in `deploy/docker.env` to enable the longer-sequence fallback.
 
 ## Optional local fallback
 

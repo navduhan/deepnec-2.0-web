@@ -7,7 +7,7 @@ import { getSSHAuthOptions, PREDICTION_CONFIG } from './config';
 
 export type ResultValue = string | number;
 export type PredictionResults = Record<string, Record<string, ResultValue>[]>;
-type PredictionRequest = { jobId: string; sequence: string; level: string; model: string };
+type PredictionRequest = { jobId: string; sequence: string; level: string; pathway: string; model: string };
 type PredictionRun = { clusterJobId?: string; executionMode: 'slurm' | 'local'; results: PredictionResults; remoteError?: string };
 
 const shellQuote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
@@ -177,7 +177,7 @@ async function runOnCluster(request: PredictionRequest): Promise<PredictionRun> 
       `--output=${shellQuote(`${remoteOutput}/slurm-%j.out`)}`,
       `--error=${shellQuote(`${remoteOutput}/slurm-%j.err`)}`,
       shellQuote(PREDICTION_CONFIG.cluster.remoteScript), shellQuote(remoteInput),
-      shellQuote(request.level), shellQuote(request.model), shellQuote(remoteOutput),
+      shellQuote(request.level), shellQuote(request.pathway), shellQuote(request.model), shellQuote(remoteOutput),
     ].join(' '));
     try {
       const results = await collectRemoteResults(sftp, remoteOutput);
@@ -206,7 +206,7 @@ async function runLocal(request: PredictionRequest, remoteError: string): Promis
     await fs.mkdir(outputDir);
     await fs.writeFile(inputPath, request.sequence.trim(), 'utf8');
     await new Promise<void>((resolve, reject) => {
-      execFile(pythonBin, [cliPath, '-i', inputPath, '-od', outputDir, '-o', 'deepnec_predictions.tsv', '-l', request.level, '-t', 'prot'], {
+      execFile(pythonBin, [cliPath, '-i', inputPath, '-od', outputDir, '-o', 'deepnec_predictions.tsv', '-l', request.level, '-n', request.pathway, '-t', 'prot'], {
         cwd: path.dirname(cliPath), timeout: PREDICTION_CONFIG.timeoutMs, maxBuffer: 10 * 1024 * 1024,
         env: { ...process.env, KERAS_HOME: kerasHome, TF_CPP_MIN_LOG_LEVEL: '3' },
       }, (error, _stdout, stderr) => error ? reject(new Error(stderr || error.message)) : resolve());

@@ -37,7 +37,7 @@ npm run build
 Use the hardened rootless Podman or Docker Compose configuration documented in [`deploy/README.md`](deploy/README.md). Copy `deploy/hpc/run_deepnec_web.slurm` to the location configured by `BIOCLUSTER_REMOTE_SCRIPT`; it accepts:
 
 ```text
-input.fasta Phase1|Phase2|Phase3|Phase4 final output-directory
+input.fasta Phase1|Phase2|Phase3|Phase4 pathway final output-directory
 ```
 
 The production web limits are 100 protein records, 100,000 total residues, and 5,000 residues per record. Only the 20 standard amino acids and `X` pass web validation; the deployed DeepNEC CLI removes `X` before feature extraction.

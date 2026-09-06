@@ -37,6 +37,11 @@ export const PREDICTION_CONFIG = {
     cliPath: process.env.LOCAL_CLI_PATH || '/opt/predictor/deepnec.py',
     kerasHome: process.env.LOCAL_KERAS_HOME || '/tmp/deepnec-keras',
   },
+  structure: {
+    s4predScript: process.env.S4PRED_SCRIPT || path.join(process.cwd(), 's4pred', 'run_model.py'),
+    s4predPython: process.env.S4PRED_PYTHON || (fs.existsSync('/Users/naveen/miniconda3/envs/deepml/bin/python') ? '/Users/naveen/miniconda3/envs/deepml/bin/python' : 'python3'),
+    swissModelToken: process.env.SWISS_MODEL_TOKEN || '',
+  },
 };
 
 export function getSSHAuthOptions() {

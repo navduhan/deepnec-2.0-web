@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, CloudDownload, FlaskConical, HelpCircle, Table2 } from 'lucide-react';
+import { BookOpen, CloudDownload, FlaskConical, HelpCircle } from 'lucide-react';
 
 const links = [
   { name: 'About', href: '/', icon: BookOpen },
   { name: 'Prediction', href: '/prediction', icon: FlaskConical },
-  { name: 'Results', href: '/results', icon: Table2 },
   { name: 'Download', href: '/download', icon: CloudDownload },
   { name: 'Help', href: '/help', icon: HelpCircle },
 ];

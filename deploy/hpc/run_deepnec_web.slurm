@@ -9,19 +9,24 @@
 set -euo pipefail
 umask 077
 
-if [[ $# -ne 4 ]]; then
-  echo "Usage: $0 input.fasta Phase1|Phase2|Phase3|Phase4 final output-directory" >&2
+if [[ $# -ne 5 ]]; then
+  echo "Usage: $0 input.fasta Phase1|Phase2|Phase3|Phase4 pathway final output-directory" >&2
   exit 64
 fi
 
 input_fasta=$1
 level=$2
-model=$3
-output_dir=$4
+pathway=$3
+model=$4
+output_dir=$5
 
 case "$level" in
   Phase1|Phase2|Phase3|Phase4) ;;
   *) echo "Invalid DeepNEC phase: $level" >&2; exit 64 ;;
+esac
+case "$pathway" in
+  all|anammox|assimilatory|denitrification|denitrification_nitrification|dissimilatory|dissimilatory_denitrification|dissimilatory_denitrification_nitrification|hydroxylamine_reduction|nitrification|nitrogen_fixation) ;;
+  *) echo "Invalid DeepNEC Phase 4 pathway: $pathway" >&2; exit 64 ;;
 esac
 if [[ "$model" != "final" ]]; then
   echo "Only the frozen final model set is deployable." >&2
@@ -64,6 +69,7 @@ export TF_CPP_MIN_LOG_LEVEL=2
   -od "$output_dir" \
   -o deepnec_predictions.tsv \
   -l "$level" \
+  -n "$pathway" \
   -t prot
 
 "$python_bin" -m deepNEC.motif_scan \

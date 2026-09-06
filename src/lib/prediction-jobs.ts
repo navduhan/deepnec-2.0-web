@@ -9,6 +9,7 @@ export type PredictionJobRecord = {
   jobId: string;
   status: PredictionJobStatus;
   level: string;
+  pathway: string;
   model: string;
   message: string;
   createdAt: string;
@@ -32,6 +33,25 @@ const errorMessage = (error: unknown) => error instanceof Error ? error.message 
 const jobDirectory = (jobId: string) => path.join(PREDICTION_CONFIG.jobDir, jobId);
 const recordPath = (jobId: string) => path.join(jobDirectory(jobId), 'job.json');
 const inputPath = (jobId: string) => path.join(jobDirectory(jobId), 'input.fasta');
+
+export async function readJobSequence(jobId: string, sampleId: string) {
+  if (!validJobId.test(jobId)) throw new Error('Invalid job identifier.');
+  if (!sampleId || sampleId.length > 256) throw new Error('Invalid sequence identifier.');
+  const fasta = await fs.readFile(inputPath(jobId), 'utf8');
+  let currentId = '';
+  let sequence = '';
+  for (const rawLine of fasta.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith('>')) {
+      if (currentId === sampleId) break;
+      currentId = line.slice(1).trim().split(/\s+/)[0];
+      sequence = '';
+    } else if (currentId === sampleId) sequence += line.replace(/\s+/g, '').toUpperCase();
+  }
+  if (!sequence) throw new Error('Sequence was not found in this prediction job.');
+  return sequence.replace(/X/g, '');
+}
 
 async function writeRecord(record: PredictionJobRecord) {
   const target = recordPath(record.jobId);
@@ -64,7 +84,7 @@ async function runJob(jobId: string, ownerHash: string) {
     await updateRecord(jobId, { status: 'running', message: 'Submitted to the prediction executor.' });
     const record = await readPredictionJob(jobId, false);
     const sequence = await fs.readFile(inputPath(jobId), 'utf8');
-    const run = await executePrediction({ jobId, sequence, level: record.level, model: record.model });
+    const run = await executePrediction({ jobId, sequence, level: record.level, pathway: record.pathway || 'all', model: record.model });
     await updateRecord(jobId, {
       status: 'completed',
       message: 'Prediction completed successfully.',
@@ -77,7 +97,6 @@ async function runJob(jobId: string, ownerHash: string) {
     await updateRecord(jobId, { status: 'failed', message: 'Prediction failed.', error: errorMessage(error) }).catch(() => {});
   } finally {
     activeJobs.delete(jobId);
-    await fs.rm(inputPath(jobId), { force: true }).catch(() => {});
   }
 }
 
@@ -119,7 +138,7 @@ export function verifyJobToken(record: PredictionJobRecord, token: string) {
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
-export async function createPredictionJob(input: { jobId: string; sequence: string; level: string; model: string; tokenHash: string; ownerHash: string }) {
+export async function createPredictionJob(input: { jobId: string; sequence: string; level: string; pathway: string; model: string; tokenHash: string; ownerHash: string }) {
   if (!validJobId.test(input.jobId)) throw new Error('Invalid job identifier.');
   reserveCapacity(input.ownerHash);
   try {
@@ -131,6 +150,7 @@ export async function createPredictionJob(input: { jobId: string; sequence: stri
       jobId: input.jobId,
       status: 'queued',
       level: input.level,
+      pathway: input.pathway,
       model: input.model,
       message: 'Job accepted and waiting for submission.',
       createdAt: now,
