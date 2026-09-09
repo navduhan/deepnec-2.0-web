@@ -1,35 +1,52 @@
 #!/usr/bin/env bash
-# Interactive DeepNEC 2.0 web deployment setup.
+# DeepNEC 2.0 web deployment manager.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="${SCRIPT_DIR}/deploy"
 ENV_FILE="${DEPLOY_DIR}/docker.env"
 ENV_EXAMPLE="${DEPLOY_DIR}/docker.env.example"
-CONFIGURE_ONLY=false
+ACTION="menu"
 
 usage() {
     cat <<'EOF'
-Usage: ./start.sh [--configure-only]
+Usage: ./start.sh [MODE]
 
-Interactively creates deploy/docker.env, validates the deployment settings,
-and starts DeepNEC 2.0 with Docker Compose or rootless Podman Compose.
+Without a mode, an interactive deployment menu is shown.
 
-  --configure-only  Write and validate deploy/docker.env without starting containers.
+  --setup           Create/update deploy/docker.env, build, and start.
+  --configure-only  Create/update and validate docker.env without starting.
+  --start-only      Start existing images without pulling or rebuilding.
+  --update          Pull the Git repository, rebuild changed images, and start.
+  --rebuild         Recreate this project and build fresh images without cache.
   -h, --help        Show this help message.
+
+Set CONTAINER_ENGINE=docker or CONTAINER_ENGINE=podman to override detection.
 EOF
+}
+
+set_action() {
+    if [[ "${ACTION}" != menu ]]; then
+        printf 'Choose only one deployment mode.\n' >&2
+        exit 2
+    fi
+    ACTION="$1"
 }
 
 for argument in "$@"; do
     case "${argument}" in
-        --configure-only) CONFIGURE_ONLY=true ;;
+        --setup) set_action setup ;;
+        --configure-only) set_action configure ;;
+        --start-only) set_action start ;;
+        --update) set_action update ;;
+        --rebuild) set_action rebuild ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'Unknown option: %s\n' "${argument}" >&2; usage >&2; exit 2 ;;
     esac
 done
 
-if [[ ! -t 0 ]]; then
-    printf 'This setup is interactive and requires a terminal.\n' >&2
+if [[ ! -t 0 && ( "${ACTION}" == menu || "${ACTION}" == setup || "${ACTION}" == configure ) ]]; then
+    printf 'Configuration modes are interactive and require a terminal.\n' >&2
     exit 1
 fi
 
@@ -141,7 +158,10 @@ select_engine() {
         exit 1
     fi
 
-    read -r -p "Container engine [${default_engine}]: " selected
+    selected="${CONTAINER_ENGINE:-}"
+    if [[ -z "${selected}" && ( "${ACTION}" == setup || "${ACTION}" == configure ) ]]; then
+        read -r -p "Container engine [${default_engine}]: " selected
+    fi
     ENGINE="${selected:-${default_engine}}"
     if [[ "${ENGINE}" != docker && "${ENGINE}" != podman ]]; then
         printf 'Container engine must be docker or podman.\n' >&2
@@ -164,6 +184,86 @@ select_engine() {
     fi
 }
 
+select_action() {
+    local choice
+    cat <<'EOF'
+Choose an action:
+  1) First-time setup or edit configuration, then build and start
+  2) Start only (no pull and no build)
+  3) Update from Git, rebuild changed images, and start
+  4) Clean rebuild (replace containers and rebuild images without cache)
+  5) Configure only (do not start)
+EOF
+    while true; do
+        read -r -p 'Action [1]: ' choice
+        case "${choice:-1}" in
+            1) ACTION=setup; return ;;
+            2) ACTION=start; return ;;
+            3) ACTION=update; return ;;
+            4) ACTION=rebuild; return ;;
+            5) ACTION=configure; return ;;
+            *) printf 'Choose 1, 2, 3, 4, or 5.\n' >&2 ;;
+        esac
+    done
+}
+
+check_health() {
+    local bind_address base_path health_host health_url attempt
+    bind_address="$(current_value PUBLIC_BIND_ADDRESS)"
+    base_path="$(current_value NEXT_PUBLIC_BASE_PATH)"
+    bind_address="${bind_address:-127.0.0.1}"
+    base_path="${base_path:-/deepnec-2.0}"
+    health_host="${bind_address}"
+    [[ "${health_host}" == 0.0.0.0 || "${health_host}" == :: ]] && health_host=127.0.0.1
+    health_url="http://${health_host}:3365${base_path}"
+    printf 'Waiting for %s ...\n' "${health_url}"
+    for attempt in {1..30}; do
+        if curl --fail --silent --show-error --max-time 5 "${health_url}" >/dev/null 2>&1; then
+            printf 'DeepNEC 2.0 is ready at %s\n' "${health_url}"
+            return 0
+        fi
+        sleep 2
+    done
+    printf 'Containers started, but the health check did not pass within 60 seconds.\n' >&2
+    printf 'Inspect logs with: %s compose --env-file deploy/docker.env %s logs app gateway\n' "${ENGINE}" "${COMPOSE_FILES[*]}" >&2
+    return 1
+}
+
+run_existing_deployment() {
+    if [[ ! -f "${ENV_FILE}" ]]; then
+        printf 'Missing %s. Run ./start.sh --setup first.\n' "${ENV_FILE}" >&2
+        exit 1
+    fi
+    cd "${SCRIPT_DIR}"
+    "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" config >/dev/null
+
+    case "${ACTION}" in
+        start)
+            printf 'Starting existing DeepNEC containers without pulling or rebuilding...\n'
+            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --no-build
+            ;;
+        update)
+            if [[ ! -d "${SCRIPT_DIR}/.git" ]]; then
+                printf 'Update mode requires a Git checkout.\n' >&2
+                exit 1
+            fi
+            printf 'Updating the repository with a fast-forward-only pull...\n'
+            git -C "${SCRIPT_DIR}" pull --ff-only
+            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" config >/dev/null
+            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
+            ;;
+        rebuild)
+            printf 'Replacing this Compose project and rebuilding images without cache. Job data and downloads are preserved.\n'
+            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" down --remove-orphans
+            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" build --pull --no-cache
+            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d
+            ;;
+    esac
+
+    "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" ps
+    check_health
+}
+
 write_setting() {
     printf '%s=%s\n' "$1" "$2" >>"${TEMP_ENV_FILE}"
 }
@@ -176,10 +276,16 @@ validate_integer() {
     fi
 }
 
-printf '\nDeepNEC 2.0 web deployment setup\n'
+printf '\nDeepNEC 2.0 web deployment manager\n'
 printf 'Secrets are written only to deploy/docker.env with mode 0600.\n\n'
 
+[[ "${ACTION}" == menu ]] && select_action
 select_engine
+
+if [[ "${ACTION}" == start || "${ACTION}" == update || "${ACTION}" == rebuild ]]; then
+    run_existing_deployment
+    exit 0
+fi
 
 prompt_value BIOCLUSTER_HOST 'HPC login host'
 prompt_value BIOCLUSTER_PORT 'HPC SSH port' '22'
@@ -312,24 +418,11 @@ cd "${SCRIPT_DIR}"
 "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" config >/dev/null
 printf 'Compose configuration is valid.\n'
 
-if [[ "${CONFIGURE_ONLY}" == true ]]; then
+if [[ "${ACTION}" == configure ]]; then
     printf 'Configuration complete; containers were not started.\n'
     exit 0
 fi
 
 "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --build
 "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" ps
-
-health_url="http://${PUBLIC_BIND_ADDRESS}:3365${NEXT_PUBLIC_BASE_PATH}"
-printf 'Waiting for %s ...\n' "${health_url}"
-for attempt in {1..30}; do
-    if curl --fail --silent --show-error --max-time 5 "${health_url}" >/dev/null 2>&1; then
-        printf 'DeepNEC 2.0 is ready at %s\n' "${health_url}"
-        exit 0
-    fi
-    sleep 2
-done
-
-printf 'Containers started, but the health check did not pass within 60 seconds.\n' >&2
-printf 'Inspect logs with: %s compose --env-file deploy/docker.env %s logs app gateway\n' "${ENGINE}" "${COMPOSE_FILES[*]}" >&2
-exit 1
+check_health
