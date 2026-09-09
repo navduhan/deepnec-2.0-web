@@ -15,8 +15,23 @@ rm -f /tmp/s4pred-weights.tar.gz
 rm -rf /opt/s4pred/.git
 
 python3 -m venv /opt/s4pred-venv
-/opt/s4pred-venv/bin/pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.2.2
-/opt/s4pred-venv/bin/pip install --no-cache-dir biopython==1.83
+S4PRED_PIP=/opt/s4pred-venv/bin/pip
+S4PRED_PYTHON=/opt/s4pred-venv/bin/python
+PYPI_INDEX=https://pypi.org/simple
+PYTORCH_CPU_INDEX=https://download.pytorch.org/whl/cpu
+
+# Keep PyPI as the primary index so transitive build dependencies (for example,
+# flit_core) are not looked up exclusively in the PyTorch wheel repository.
+"$S4PRED_PIP" install --no-cache-dir \
+    --index-url "$PYPI_INDEX" \
+    typing-extensions==4.12.2
+"$S4PRED_PIP" install --no-cache-dir \
+    --index-url "$PYPI_INDEX" \
+    --extra-index-url "$PYTORCH_CPU_INDEX" \
+    torch==2.2.2+cpu \
+    biopython==1.83
+
+"$S4PRED_PYTHON" -c 'import Bio, torch; print("S4PRED runtime:", "Biopython", Bio.__version__, "PyTorch", torch.__version__)'
 
 test -f /opt/s4pred/run_model.py
 test -f /opt/s4pred/weights/weights_1.pt
