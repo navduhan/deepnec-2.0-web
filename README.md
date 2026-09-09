@@ -48,7 +48,7 @@ For an interactive first-time setup, run:
 
 The script selects Docker Compose or rootless Podman Compose, prompts for the HPC, SSH-key, Turnstile, proxy, and optional SWISS-MODEL settings, creates `deploy/docker.env` with mode `0600`, validates the Compose configuration, builds the images, starts the services, and checks the web endpoint. Later runs provide start-only, Git update, and clean-rebuild actions. Equivalent direct commands are `./start.sh --start-only`, `./start.sh --update`, and `./start.sh --rebuild`. Use `./start.sh --configure-only` to update and validate the environment file without starting containers.
 
-The production web limits are 100 protein records, 100,000 total residues, and 5,000 residues per record. Only the 20 standard amino acids and `X` pass web validation; the deployed DeepNEC CLI removes `X` before feature extraction.
+The production web limits are 10,000 protein records, 50,000,000 total residues, 5,000 residues per record, and 100 accessions per retrieval. Only the 20 standard amino acids and `X` pass web validation; the deployed DeepNEC CLI removes `X` before feature extraction.
 
 ## License
 
