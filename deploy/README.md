@@ -108,3 +108,7 @@ The application image installs the pinned S4PRED source and verified model weigh
 Cluster execution is always attempted first. Local inference remains disabled unless `deploy/compose.local-fallback.yaml` is added explicitly and `LOCAL_PREDICTOR_DIR` points to a read-only predictor installation containing `.venv/bin/python`, `deepnec.py`, packages, and models.
 
 Do not use the fallback overlay on a resource-constrained VM until its CPU and memory limits have been reviewed.
+
+The image build packages the standalone revision pinned in `deploy/package-standalone.sh` into `/download/deepnec-2.0-standalone.tar.gz`, with `SHA256SUMS` and `REVISION.txt`. Do not mount an empty host folder over `/app/public/download`: it would hide the packaged files.
+
+The web job launcher accepts an optional sixth argument (`prot` or `nucl`). Nucleotide jobs require `TransDecoder.LongOrfs` in the cluster runtime PATH. They retain `translated_proteins.fasta` in the private job directory so structure requests use the translated protein identifiers and sequences. Protein and nucleotide usage examples are on Help.

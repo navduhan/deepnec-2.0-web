@@ -72,7 +72,7 @@ export async function readJsonBody<T>(req: NextRequest): Promise<T> {
   }
 }
 
-export function validateProteinFasta(fastaText: string) {
+export function validateProteinFasta(fastaText: string, sequenceType: 'prot'|'nucl' = 'prot') {
   if (!fastaText || !fastaText.trim()) return { valid: false, error: 'FASTA sequence content is empty.' };
   if (Buffer.byteLength(fastaText, 'utf8') > REQUEST_LIMITS.bodyBytes) return { valid: false, error: 'FASTA input is too large.' };
 
@@ -92,7 +92,7 @@ export function validateProteinFasta(fastaText: string) {
     }
     if (currentLength < 0) return { valid: false, error: 'FASTA input must begin with a ">" header.' };
     const residues = line.replace(/\s+/g, '').toUpperCase();
-    if (!/^[ACDEFGHIKLMNPQRSTVWYX]+$/.test(residues)) return { valid: false, error: 'FASTA may contain the 20 standard amino acids and X only.' };
+    if (!(sequenceType === 'nucl' ? /^[ACGTUN]+$/ : /^[ACDEFGHIKLMNPQRSTVWYX]+$/).test(residues)) return { valid: false, error: sequenceType === 'nucl' ? 'Nucleotide FASTA may contain A, C, G, T, U and N only.' : 'FASTA may contain the 20 standard amino acids and X only.' };
     currentLength += residues.length;
     totalResidues += residues.length;
     if (currentLength > REQUEST_LIMITS.sequenceLength) return { valid: false, error: `An individual sequence cannot exceed ${REQUEST_LIMITS.sequenceLength} residues.` };

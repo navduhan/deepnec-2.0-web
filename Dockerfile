@@ -28,6 +28,9 @@ RUN bash /tmp/install-s4pred.sh \
     && chown -R root:root /opt/s4pred /opt/s4pred-venv \
     && chmod -R a-w /opt/s4pred /opt/s4pred-venv
 
+COPY deploy/package-standalone.sh /tmp/package-standalone.sh
+RUN bash /tmp/package-standalone.sh /opt/deepnec-downloads
+
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -39,7 +42,9 @@ ENV S4PRED_PYTHON=/opt/s4pred-venv/bin/python
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-RUN mkdir -p /app/data/jobs && chown -R nextjs:nodejs /app/data
+RUN mkdir -p /app/public/download /app/data/jobs \
+    && cp /opt/deepnec-downloads/* /app/public/download/ \
+    && chown -R nextjs:nodejs /app/data
 
 USER nextjs
 EXPOSE 3365

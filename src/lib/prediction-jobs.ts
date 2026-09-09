@@ -11,6 +11,7 @@ export type PredictionJobRecord = {
   level: string;
   pathway: string;
   model: string;
+  sequenceType?: 'prot'|'nucl';
   message: string;
   createdAt: string;
   updatedAt: string;
@@ -37,7 +38,8 @@ const inputPath = (jobId: string) => path.join(jobDirectory(jobId), 'input.fasta
 export async function readJobSequence(jobId: string, sampleId: string) {
   if (!validJobId.test(jobId)) throw new Error('Invalid job identifier.');
   if (!sampleId || sampleId.length > 256) throw new Error('Invalid sequence identifier.');
-  const fasta = await fs.readFile(inputPath(jobId), 'utf8');
+  const record = await readPredictionJob(jobId);
+  const fasta = await fs.readFile(record.sequenceType==='nucl'?path.join(jobDirectory(jobId),'translated_proteins.fasta'):inputPath(jobId), 'utf8');
   let currentId = '';
   let sequence = '';
   for (const rawLine of fasta.split(/\r?\n/)) {
@@ -84,7 +86,7 @@ async function runJob(jobId: string, ownerHash: string) {
     await updateRecord(jobId, { status: 'running', message: 'Submitted to the prediction executor.' });
     const record = await readPredictionJob(jobId, false);
     const sequence = await fs.readFile(inputPath(jobId), 'utf8');
-    const run = await executePrediction({ jobId, sequence, level: record.level, pathway: record.pathway || 'all', model: record.model });
+    const run = await executePrediction({ jobId, sequence, level: record.level, pathway: record.pathway || 'all', model: record.model, sequenceType:record.sequenceType||'prot' });
     await updateRecord(jobId, {
       status: 'completed',
       message: 'Prediction completed successfully.',
@@ -138,7 +140,7 @@ export function verifyJobToken(record: PredictionJobRecord, token: string) {
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
-export async function createPredictionJob(input: { jobId: string; sequence: string; level: string; pathway: string; model: string; tokenHash: string; ownerHash: string }) {
+export async function createPredictionJob(input: { jobId: string; sequence: string; level: string; pathway: string; model: string; sequenceType?: 'prot'|'nucl'; tokenHash: string; ownerHash: string }) {
   if (!validJobId.test(input.jobId)) throw new Error('Invalid job identifier.');
   reserveCapacity(input.ownerHash);
   try {
@@ -152,6 +154,7 @@ export async function createPredictionJob(input: { jobId: string; sequence: stri
       level: input.level,
       pathway: input.pathway,
       model: input.model,
+      sequenceType:input.sequenceType||'prot',
       message: 'Job accepted and waiting for submission.',
       createdAt: now,
       updatedAt: now,

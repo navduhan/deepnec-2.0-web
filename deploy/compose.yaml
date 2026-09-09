@@ -44,7 +44,6 @@ services:
       SWISS_MODEL_TOKEN: ${SWISS_MODEL_TOKEN:-}
       LOCAL_FALLBACK_ENABLED: "false"
     volumes:
-      - ../public/download:/app/public/download:ro,Z
       - ./data/jobs:/app/data/jobs:Z
     tmpfs:
       - /tmp:size=512m,mode=1777

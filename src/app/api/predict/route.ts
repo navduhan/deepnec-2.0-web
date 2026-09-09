@@ -43,12 +43,14 @@ export async function POST(req: NextRequest) {
     assertSameOrigin(req);
     const ip = clientIp(req);
     enforceRateLimit('predict-submit', ip, 3, 10 * 60 * 1000);
-    const body = await readJsonBody<{ sequence?: unknown; level?: unknown; pathway?: unknown; model?: unknown; turnstileToken?: unknown }>(req);
+    const body = await readJsonBody<{ sequenceType?: unknown; sequence?: unknown; level?: unknown; pathway?: unknown; model?: unknown; turnstileToken?: unknown }>(req);
     const sequence = typeof body.sequence === 'string' ? body.sequence.trim() : '';
     const level = typeof body.level === 'string' ? body.level : 'Phase4';
     const pathway = typeof body.pathway === 'string' ? body.pathway : 'all';
     const model = typeof body.model === 'string' ? body.model : 'final';
-    const validation = validateProteinFasta(sequence);
+    const sequenceType = body.sequenceType ?? 'prot';
+    if (sequenceType !== 'prot' && sequenceType !== 'nucl') return NextResponse.json({error:'Invalid sequence type.'},{status:400});
+    const validation = validateProteinFasta(sequence, sequenceType);
     if (!validation.valid) return NextResponse.json({ error: validation.error }, { status: 400 });
     if (!validLevels.has(level)) return NextResponse.json({ error: 'Invalid prediction level.' }, { status: 400 });
     if (!validPathways.has(pathway)) return NextResponse.json({ error: 'Invalid Phase 4 pathway.' }, { status: 400 });
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     const jobId = `deepnec_${crypto.randomUUID().replaceAll('-', '')}`;
     const jobToken = crypto.randomBytes(32).toString('base64url');
-    const job = await createPredictionJob({ jobId, sequence, level, pathway: level === 'Phase4' ? pathway : 'all', model, tokenHash: hashJobToken(jobToken), ownerHash: ownerHash(ip) });
+    const job = await createPredictionJob({ jobId, sequence, sequenceType, level, pathway: level === 'Phase4' ? pathway : 'all', model, tokenHash: hashJobToken(jobToken), ownerHash: ownerHash(ip) });
     return NextResponse.json({ ...publicJob(job), jobToken }, { status: 202, headers: { 'Cache-Control': 'no-store' } });
   } catch (error: unknown) {
     const securityResponse = securityErrorResponse(error);

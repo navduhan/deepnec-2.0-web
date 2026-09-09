@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createHash, randomUUID } from 'crypto';
+import { readPredictionJob } from './prediction-jobs';
 import { PREDICTION_CONFIG } from './config';
 
 export type StructureKind = 'secondary' | 'tertiary';
@@ -55,7 +56,8 @@ export async function structureStatus(jobId: string) {
     try { await fs.stat(path.join(dir, entry)); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') entries.delete(entry); else throw error; }
   }
-  const fasta = await fs.readFile(path.join(PREDICTION_CONFIG.jobDir, jobId, 'input.fasta'), 'utf8');
+  const record = await readPredictionJob(jobId);
+  const fasta = await fs.readFile(path.join(PREDICTION_CONFIG.jobDir, jobId, record.sequenceType==='nucl'?'translated_proteins.fasta':'input.fasta'), 'utf8');
   const result: Record<string, { secondary: string; tertiary: string }> = {};
   for (const record of fasta.split(/^>/m).slice(1)) {
     const lines = record.split(/\r?\n/);
