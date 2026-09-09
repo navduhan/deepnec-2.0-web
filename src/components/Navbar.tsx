@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
+import { withBasePath } from '@/lib/base-path';
 import { usePathname } from 'next/navigation';
 import { BookOpen, CloudDownload, FlaskConical, HelpCircle } from 'lucide-react';
 
@@ -26,7 +28,7 @@ export default function Navbar() {
             return <Link key={href} href={href} className={`nav-link ${active ? 'nav-link-active' : ''}`}><Icon className="h-4 w-4" /><span className="hidden sm:inline">{name}</span></Link>;
           })}
         </nav>
-        <a href="https://www.usu.edu" target="_blank" rel="noreferrer" className="hidden text-right text-[11px] font-black uppercase leading-tight tracking-[0.12em] text-[var(--navy)] lg:block">Utah State<br/><span className="font-semibold tracking-[0.08em]">University</span></a>
+        <a href="https://www.usu.edu" target="_blank" rel="noreferrer" className="hidden md:block"><Image src={withBasePath('/assets/images/usulogo2.png')} alt="Utah State University" width={180} height={49} unoptimized /></a>
       </div>
     </header>
   );
