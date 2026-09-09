@@ -17,10 +17,9 @@ if [[ ! -f "$launcher" ]]; then
   exit 69
 fi
 
-project_root="${DEEPNEC_PROJECT_ROOT:-/mmfs1/scratch/jacks.local/naveen.duhan/phd/deepnec-2.0}"
 export DEEPNEC_APP_DIR="$app_dir"
-export PYTHON_BIN="${PYTHON_BIN:-$project_root/conda-envs/deepml/bin/python}"
-export HF_HOME="${HF_HOME:-$project_root/round2/analysis/Phase1_trial/phase1_esm2_lora/cache/huggingface}"
+export DEEPNEC_MODULE="${DEEPNEC_MODULE:-dl-gpu}"
+export HF_HOME="${HF_HOME:-$HOME/.cache/huggingface}"
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/hub}"
 export HF_HUB_OFFLINE=1

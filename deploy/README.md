@@ -23,7 +23,7 @@ chmod 0600 /absolute/path/to/dedicated-private-key
 
 `ssh-keyscan` discovers a key but does not establish trust by itself. Password authentication is not supported by this deployment.
 
-Install the maintained standalone DeepNEC repository at `$HOME/naveen_tools/deepnec-2.0`, or set `DEEPNEC_APP_DIR` to its absolute path. Install `deploy/hpc/run_deepnec_web.slurm` on the cluster and set `BIOCLUSTER_REMOTE_SCRIPT` to its absolute path. The wrapper accepts `input.fasta level pathway model output-directory` and delegates to the standalone repository's `deepnec.sl`, ensuring that the web server uses the same frozen final models as the released CLI. Set `DEEPNEC_PROJECT_ROOT`, `PYTHON_BIN`, or the Hugging Face cache variables when the site layout differs. The launcher writes tab-delimited results only under the supplied output directory and returns a nonzero exit code on failure.
+Install the maintained standalone DeepNEC repository at `$HOME/naveen_tools/deepnec-2.0`, or set `DEEPNEC_APP_DIR` to its absolute path. Install `deploy/hpc/run_deepnec_web.slurm` on the cluster and set `BIOCLUSTER_REMOTE_SCRIPT` to its absolute path. The wrapper accepts `input.fasta level pathway model output-directory`, loads the `dl-gpu` module, and delegates to the standalone repository's `deepnec.sl`, ensuring that the web server uses the same frozen final models as the released CLI. Set `DEEPNEC_MODULE`, `PYTHON_BIN`, or the Hugging Face cache variables when the site layout differs. The launcher writes tab-delimited results only under the supplied output directory and returns a nonzero exit code on failure.
 
 ## Start
 
