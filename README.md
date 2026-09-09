@@ -36,6 +36,14 @@ npm run build
 
 Use the hardened rootless Podman or Docker Compose configuration documented in [`deploy/README.md`](deploy/README.md). Copy `deploy/hpc/run_deepnec_web.slurm` to the location configured by `BIOCLUSTER_REMOTE_SCRIPT`; it accepts:
 
+For an interactive first-time setup, run:
+
+```bash
+./start.sh
+```
+
+The script selects Docker Compose or rootless Podman Compose, prompts for the HPC, SSH-key, Turnstile, proxy, and optional SWISS-MODEL settings, creates `deploy/docker.env` with mode `0600`, validates the Compose configuration, builds the images, starts the services, and checks the web endpoint. Use `./start.sh --configure-only` to create and validate the environment file without starting containers.
+
 ```text
 input.fasta Phase1|Phase2|Phase3|Phase4 pathway final output-directory
 ```

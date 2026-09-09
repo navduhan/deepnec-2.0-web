@@ -27,6 +27,14 @@ Install `deploy/hpc/run_deepnec_web.slurm` on the cluster and set `BIOCLUSTER_RE
 
 ## Start
 
+The recommended interactive setup from the repository root is:
+
+```bash
+./start.sh
+```
+
+It safely creates `deploy/docker.env`, validates the selected Compose configuration, builds the images, starts the services, and performs a health check. To populate and validate the environment file without starting containers, run `./start.sh --configure-only`.
+
 ### Rootless Podman (recommended on RHEL-family VMs)
 
 Install the external Compose provider, then run the deployment as the unprivileged VM user without `sudo`:
