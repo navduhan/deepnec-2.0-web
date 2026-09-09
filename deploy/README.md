@@ -58,6 +58,27 @@ docker compose --env-file deploy/docker.env -f deploy/compose.yaml -f deploy/com
 
 The gateway listens only on `127.0.0.1:3365` by default. When the HTTPS reverse proxy is on another host, set `PUBLIC_BIND_ADDRESS` to the VM's private interface address and set `TRUSTED_PROXY_CIDR` to the reverse proxy's exact source address with a `/32` prefix. Restrict TCP port 3365 at the VM firewall to that same source address. Never expose the internal application container.
 
+### Apache HTTPS reverse proxy
+
+When Apache runs on a separate frontend host, add the following lines inside the existing HTTPS virtual host. Replace `DEEPNEC_PRIVATE_HOST` only in the server configuration; do not commit its private address:
+
+```apache
+ProxyRequests Off
+ProxyPreserveHost On
+RequestHeader set X-Forwarded-Proto "https"
+RequestHeader set X-Forwarded-Port "443"
+
+ProxyPass        /deepnec-2.0 http://DEEPNEC_PRIVATE_HOST:3365/deepnec-2.0 connectiontimeout=5 timeout=720
+ProxyPassReverse /deepnec-2.0 http://DEEPNEC_PRIVATE_HOST:3365/deepnec-2.0
+```
+
+On the DeepNEC host, use its private interface for `PUBLIC_BIND_ADDRESS` and use the Apache host's private source address with a `/32` prefix for `TRUSTED_PROXY_CIDR`. Permit port 3365 only from that Apache source address. Then validate and reload Apache:
+
+```bash
+sudo apachectl configtest
+sudo systemctl reload httpd
+```
+
 Check the deployment:
 
 ```bash

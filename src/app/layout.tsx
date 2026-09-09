@@ -1,4 +1,5 @@
 import './globals.css';
+import Script from 'next/script';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import type { Metadata } from 'next';
@@ -21,6 +22,16 @@ export default function RootLayout({
           {children}
         </main>
         <Footer />
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-FPHG3TYT4N"
+          strategy="afterInteractive"
+        />
+        <Script id="deepnec-google-tag" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-FPHG3TYT4N');`}
+        </Script>
       </body>
     </html>
   );
