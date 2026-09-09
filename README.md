@@ -34,7 +34,11 @@ npm run build
 
 ## Deployment
 
-Use the hardened rootless Podman or Docker Compose configuration documented in [`deploy/README.md`](deploy/README.md). Copy `deploy/hpc/run_deepnec_web.slurm` to the location configured by `BIOCLUSTER_REMOTE_SCRIPT`; it accepts:
+Use the hardened rootless Podman or Docker Compose configuration documented in [`deploy/README.md`](deploy/README.md). Deploy the maintained standalone DeepNEC repository on the cluster, then copy `deploy/hpc/run_deepnec_web.slurm` to the location configured by `BIOCLUSTER_REMOTE_SCRIPT`; it delegates prediction to the standalone repository's `deepnec.sl` and accepts:
+
+```text
+input.fasta Phase1|Phase2|Phase3|Phase4 pathway final output-directory
+```
 
 For an interactive first-time setup, run:
 
@@ -43,10 +47,6 @@ For an interactive first-time setup, run:
 ```
 
 The script selects Docker Compose or rootless Podman Compose, prompts for the HPC, SSH-key, Turnstile, proxy, and optional SWISS-MODEL settings, creates `deploy/docker.env` with mode `0600`, validates the Compose configuration, builds the images, starts the services, and checks the web endpoint. Later runs provide start-only, Git update, and clean-rebuild actions. Equivalent direct commands are `./start.sh --start-only`, `./start.sh --update`, and `./start.sh --rebuild`. Use `./start.sh --configure-only` to update and validate the environment file without starting containers.
-
-```text
-input.fasta Phase1|Phase2|Phase3|Phase4 pathway final output-directory
-```
 
 The production web limits are 100 protein records, 100,000 total residues, and 5,000 residues per record. Only the 20 standard amino acids and `X` pass web validation; the deployed DeepNEC CLI removes `X` before feature extraction.
 
