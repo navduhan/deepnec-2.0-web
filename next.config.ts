@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   images: { unoptimized: true },
+  serverExternalPackages: ["ssh2"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
