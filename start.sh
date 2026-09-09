@@ -229,6 +229,24 @@ check_health() {
     return 1
 }
 
+build_podman_app() {
+    local cache_mode="${1:-cached}"
+    local build_args=(
+        build
+        --jobs=1
+        --pull
+        --build-arg "NEXT_PUBLIC_BASE_PATH=$(current_value NEXT_PUBLIC_BASE_PATH)"
+        --build-arg "NEXT_PUBLIC_TURNSTILE_SITE_KEY=$(current_value TURNSTILE_SITE_KEY)"
+        --tag deepnec-web:2.1
+    )
+    if [[ "${cache_mode}" == no-cache ]]; then
+        build_args+=(--no-cache)
+    fi
+    build_args+=(.)
+    printf 'Building the DeepNEC application with one Podman stage at a time...\n'
+    podman "${build_args[@]}"
+}
+
 run_existing_deployment() {
     if [[ ! -f "${ENV_FILE}" ]]; then
         printf 'Missing %s. Run ./start.sh --setup first.\n' "${ENV_FILE}" >&2
@@ -250,12 +268,21 @@ run_existing_deployment() {
             printf 'Updating the repository with a fast-forward-only pull...\n'
             git -C "${SCRIPT_DIR}" pull --ff-only
             "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" config >/dev/null
-            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
+            if [[ "${ENGINE}" == podman ]]; then
+                build_podman_app
+                "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --no-build --remove-orphans
+            else
+                "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
+            fi
             ;;
         rebuild)
             printf 'Replacing this Compose project and rebuilding images without cache. Job data and downloads are preserved.\n'
             "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" down --remove-orphans
-            "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" build --pull --no-cache
+            if [[ "${ENGINE}" == podman ]]; then
+                build_podman_app no-cache
+            else
+                "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" build --pull --no-cache
+            fi
             "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d
             ;;
     esac
@@ -423,6 +450,11 @@ if [[ "${ACTION}" == configure ]]; then
     exit 0
 fi
 
-"${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --build
+if [[ "${ENGINE}" == podman ]]; then
+    build_podman_app
+    "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --no-build
+else
+    "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --build
+fi
 "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" ps
 check_health
