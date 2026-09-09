@@ -5,10 +5,9 @@ import { Bookmark, Check, Copy, Database, FileUp, Loader2, Play, RotateCcw, Shie
 import TurnstileWidget from '@/components/TurnstileWidget';
 import { withBasePath } from '@/lib/base-path';
 import { buildJobBookmark } from '@/lib/job-bookmark';
-import { demoSequences as previousDemoSequences } from '../../../frontend/src/Pages/Prediction/geneSamples';
+import { demoSequences } from '@/data/demo-sequences';
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
-const demoSequences = previousDemoSequences as Record<string, string>;
 const pathwayOptions = [
   ['all', 'Automatic — use the predicted pathway'],
   ['anammox', 'Anammox'],
