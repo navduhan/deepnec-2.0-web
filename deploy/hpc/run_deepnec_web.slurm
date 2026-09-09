@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=deepnec-web
-#SBATCH --partition=gpu
+#SBATCH --partition=mahaguru
+#SBATCH --nodelist=chela-g01
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=64G
