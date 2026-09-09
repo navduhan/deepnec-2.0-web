@@ -37,11 +37,21 @@ export async function predictSecondary(sequence: string): Promise<SecondaryStruc
 }
 
 async function esmFold(sequence: string) {
-  const response = await fetch('https://api.esmatlas.com/foldSequence/v1/pdb/', {
-    method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: sequence, signal: AbortSignal.timeout(180_000), cache: 'no-store',
-  });
-  if (!response.ok) throw new Error(`ESMFold returned HTTP ${response.status}.`);
-  return response.text();
+  let lastError = 'The ESMFold service did not respond.';
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch('https://api.esmatlas.com/foldSequence/v1/pdb/', {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: sequence, signal: AbortSignal.timeout(180_000), cache: 'no-store',
+      });
+      if (response.ok) return response.text();
+      lastError = `ESMFold returned HTTP ${response.status}.`;
+      if (![429, 502, 503, 504].includes(response.status)) break;
+    } catch (error) {
+      lastError = message(error);
+    }
+    if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 3_000));
+  }
+  throw new Error(lastError);
 }
 
 async function swissModel(sequence: string) {
@@ -76,7 +86,16 @@ async function swissModel(sequence: string) {
 
 export async function predictTertiary(sequence: string) {
   try {
-    if (sequence.length <= 400) return { pdb: await esmFold(sequence), method: 'ESMFold' };
+    if (sequence.length <= 400) {
+      try {
+        return { pdb: await esmFold(sequence), method: 'ESMFold' };
+      } catch (error) {
+        if (PREDICTION_CONFIG.structure.swissModelToken) {
+          return { pdb: await swissModel(sequence), method: 'SWISS-MODEL (ESMFold fallback)' };
+        }
+        throw new Error(`The ESMFold service is temporarily unavailable. Please retry later. ${message(error)}`);
+      }
+    }
     return { pdb: await swissModel(sequence), method: 'SWISS-MODEL' };
   } catch (error) {
     throw new Error(`Tertiary-structure prediction failed: ${message(error)}`);

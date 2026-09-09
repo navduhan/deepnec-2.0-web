@@ -24,14 +24,15 @@ PYTORCH_CPU_INDEX=https://download.pytorch.org/whl/cpu
 # flit_core) are not looked up exclusively in the PyTorch wheel repository.
 "$S4PRED_PIP" install --no-cache-dir \
     --index-url "$PYPI_INDEX" \
-    typing-extensions==4.12.2
+    typing-extensions==4.12.2 \
+    numpy==1.26.4
 "$S4PRED_PIP" install --no-cache-dir \
     --index-url "$PYPI_INDEX" \
     --extra-index-url "$PYTORCH_CPU_INDEX" \
     torch==2.2.2+cpu \
     biopython==1.83
 
-"$S4PRED_PYTHON" -c 'import Bio, torch; print("S4PRED runtime:", "Biopython", Bio.__version__, "PyTorch", torch.__version__)'
+"$S4PRED_PYTHON" -c 'import Bio, numpy, torch; assert torch.tensor([1.0]).numpy()[0] == 1.0; print("S4PRED runtime:", "Biopython", Bio.__version__, "NumPy", numpy.__version__, "PyTorch", torch.__version__)'
 
 test -f /opt/s4pred/run_model.py
 test -f /opt/s4pred/weights/weights_1.pt

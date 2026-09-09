@@ -42,7 +42,7 @@ export default function TurnstileWidget({ siteKey, onToken, resetKey }: { siteKe
 
   if (!siteKey) return null;
   return <>
-    <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={() => setLoaded(true)} />
+    <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onReady={() => setLoaded(true)} />
     <div ref={containerRef} className="min-h-[65px]" aria-label="Anti-bot verification" />
   </>;
 }

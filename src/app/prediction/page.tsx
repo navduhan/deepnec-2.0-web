@@ -7,7 +7,6 @@ import { withBasePath } from '@/lib/base-path';
 import { buildJobBookmark } from '@/lib/job-bookmark';
 import { demoSequences } from '@/data/demo-sequences';
 
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 const pathwayOptions = [
   ['all', 'Automatic — use the predicted pathway'],
   ['anammox', 'Anammox'],
@@ -68,6 +67,7 @@ export default function PredictionPage() {
   const [error, setError] = useState('');
   const [turnstile, setTurnstile] = useState('');
   const [resetKey, setResetKey] = useState(0);
+  const [securityConfig, setSecurityConfig] = useState({ loaded: false, required: true, siteKey: '', error: '' });
   const [receipt, setReceipt] = useState<{jobId:string;url:string}|null>(null);
   const [copied, setCopied] = useState(false);
   const count = useMemo(() => (sequence.match(/^>/gm) || []).length, [sequence]);
@@ -94,6 +94,27 @@ export default function PredictionPage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(withBasePath('/api/security-config'), { cache: 'no-store' })
+      .then(async (response) => {
+        const config = await response.json() as { turnstileRequired?: boolean; turnstileSiteKey?: string };
+        if (!response.ok) throw new Error('Unable to load verification settings.');
+        if (!cancelled) {
+          setSecurityConfig({
+            loaded: true,
+            required: config.turnstileRequired === true,
+            siteKey: typeof config.turnstileSiteKey === 'string' ? config.turnstileSiteKey : '',
+            error: '',
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSecurityConfig({ loaded: true, required: true, siteKey: '', error: 'Verification is temporarily unavailable.' });
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   async function fetchAccessions() {
     if (!accessions.trim()) return setError('Enter at least one accession.');
     setBusy(true); setStatus('Retrieving protein sequences…'); setError('');
@@ -108,7 +129,9 @@ export default function PredictionPage() {
 
   async function submit() {
     if (!sequence.trim().startsWith('>')) return setError('Provide protein FASTA beginning with a header line (>).');
-    if (TURNSTILE_SITE_KEY && !turnstile) return setError('Complete the anti-bot check before submitting.');
+    if (!securityConfig.loaded) return setError('Wait for the anti-bot verification to load.');
+    if (securityConfig.required && !securityConfig.siteKey) return setError('Anti-bot verification is not configured correctly.');
+    if (securityConfig.required && !turnstile) return setError('Complete the anti-bot check before submitting.');
     setBusy(true); setStatus('Submitting your sequences…'); setError('');
     try {
       const response = await fetch(withBasePath('/api/predict'), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sequence,level,pathway:level==='Phase4'?pathway:'all',model:'final',turnstileToken:turnstile}) });
@@ -155,7 +178,7 @@ export default function PredictionPage() {
         <div className={`${mode==='paste'?'mt-5':'mt-4'}`}><div className="mb-2 flex items-center justify-between"><label htmlFor="deepnec-fasta" className="text-sm font-bold text-[var(--navy)]">FASTA sequence</label><button type="button" onClick={loadExample} className="text-xs font-bold text-[var(--blue)]">Load example</button></div><textarea id="deepnec-fasta" rows={12} className="field resize-y font-mono text-xs leading-6" value={sequence} onChange={(e)=>{setSequence(e.target.value);setDemoLoaded(false)}} placeholder=">protein_id&#10;MSEQUENCE…"/><p className="mt-2 text-xs text-slate-500">{count ? `${count} protein record${count===1?'':'s'} detected` : 'Use standard amino-acid FASTA. X residues are accepted and removed before prediction.'}</p></div>
       </section>
       <aside className="space-y-5"><section className="surface p-5 sm:p-7"><p className="eyebrow">Step 2</p><h2 className="mt-1 font-display text-2xl font-semibold text-[var(--navy)]">Prediction level</h2><div className="mt-5 space-y-2">{[['Phase1','Enzyme or non-enzyme'],['Phase2','Nitrogen metabolism'],['Phase3','Biological pathway'],['Phase4','Terminal EC label']].map(([value,label],i)=><label key={value} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${level===value?'border-[var(--blue)] bg-[#f1f7fc]':'border-[var(--line)]'}`}><input type="radio" name="level" value={value} checked={level===value} onChange={()=>setLevel(value)} className="accent-[#2b6cb0]"/><span><strong className="block text-sm text-[var(--navy)]">Phase {i+1}</strong><span className="text-xs text-slate-500">{label}</span></span></label>)}</div>{level==='Phase4'&&<div className="mt-5 border-t border-[var(--line)] pt-5"><label htmlFor="phase4-pathway" className="text-sm font-bold text-[var(--navy)]">Phase 4 pathway</label><select id="phase4-pathway" className="field mt-2" value={pathway} onChange={(e)=>changePathway(e.target.value as Pathway)}>{pathwayOptions.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><p className="mt-2 text-xs leading-5 text-slate-500">Automatic uses the pathway predicted in Phase 3. Choose a pathway to restrict EC assignment to that route.</p></div>}</section>
-        <section className="rounded-[1.5rem] bg-[var(--navy)] p-6 text-white"><ShieldCheck className="h-5 w-5 text-[#9fccef]"/><h2 className="mt-4 font-display text-xl font-semibold">Ready to predict?</h2><p className="mt-2 text-xs leading-5 text-slate-300">Your results will be available through a private link for 30 days.</p><div className="mt-5"><TurnstileWidget siteKey={TURNSTILE_SITE_KEY} resetKey={resetKey} onToken={setTurnstile}/></div><button type="button" disabled={busy} onClick={submit} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--pink)] px-4 py-3 text-sm font-black text-white transition hover:bg-[#d9597b] disabled:opacity-60">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Play className="h-4 w-4"/>}{busy?'Running…':'Start prediction'}</button></section>
+        <section className="rounded-[1.5rem] bg-[var(--navy)] p-6 text-white"><ShieldCheck className="h-5 w-5 text-[#9fccef]"/><h2 className="mt-4 font-display text-xl font-semibold">Ready to predict?</h2><p className="mt-2 text-xs leading-5 text-slate-300">Your results will be available through a private link for 30 days.</p><div className="mt-5 min-h-[65px]">{!securityConfig.loaded?<div className="flex min-h-[65px] items-center gap-2 text-xs text-slate-300"><Loader2 className="h-4 w-4 animate-spin"/> Loading verification…</div>:securityConfig.error?<div role="alert" className="rounded-lg border border-[#efb4c2] bg-[#fff4f7] p-3 text-xs font-semibold text-[var(--danger)]">{securityConfig.error}</div>:securityConfig.required?<TurnstileWidget siteKey={securityConfig.siteKey} resetKey={resetKey} onToken={setTurnstile}/>:<p className="text-xs text-slate-300">Verification is not required.</p>}</div><button type="button" disabled={busy||!securityConfig.loaded||Boolean(securityConfig.error)} onClick={submit} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--pink)] px-4 py-3 text-sm font-black text-white transition hover:bg-[#d9597b] disabled:opacity-60">{busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Play className="h-4 w-4"/>}{busy?'Running…':'Start prediction'}</button></section>
       </aside>
     </div>
     {busy && <section aria-live="polite" className="surface p-5"><div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-[var(--blue)]"/><div><p className="text-sm font-bold text-[var(--navy)]">{status}</p><p className="mt-1 text-xs text-slate-500">You may keep this page open or bookmark the private result link.</p></div></div>{receipt&&<div className="mt-4 flex flex-col gap-3 rounded-xl bg-[#f4f8fb] p-4 sm:flex-row sm:items-center"><Bookmark className="h-4 w-4 text-[var(--pink)]"/><code className="min-w-0 flex-1 truncate text-xs">{receipt.url}</code><button type="button" className="btn-secondary" onClick={()=>void navigator.clipboard.writeText(receipt.url).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500)})}>{copied?<Check className="h-4 w-4"/>:<Copy className="h-4 w-4"/>}{copied?'Copied':'Copy'}</button></div>}</section>}
