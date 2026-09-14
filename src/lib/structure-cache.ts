@@ -63,7 +63,7 @@ export async function structureStatus(jobId: string) {
     const lines = record.split(/\r?\n/);
     const id = lines.shift()!.trim().split(/\s+/)[0];
     const hash = digest(lines.join('').replace(/\s+/g, '').toUpperCase().replace(/X/g, ''));
-    const state = (kind: StructureKind) => entries.has(`${hash}.${kind}.json`) ? 'ready' : entries.has(`${hash}.${kind}.json.lock`) ? 'running' : 'missing';
+    const state = (kind: StructureKind) => entries.has(`${hash}.${kind}.json`) ? 'ready' : kind === 'tertiary' && entries.has(`${hash}.swiss-project.json.failed`) ? 'failed' : (entries.has(`${hash}.${kind}.json.lock`) || (kind === 'tertiary' && entries.has(`${hash}.swiss-project.json`))) ? 'running' : 'missing';
     result[id] = { secondary: state('secondary'), tertiary: state('tertiary') };
   }
   return result;

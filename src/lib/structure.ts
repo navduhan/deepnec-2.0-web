@@ -54,9 +54,14 @@ async function esmFold(sequence: string) {
   throw new Error(lastError);
 }
 
-async function swissModel(sequence: string) {
+export class StructurePending extends Error {}
+export type RemoteProject = { load: () => Promise<string | null>; save: (id: string) => Promise<void>; failed: () => Promise<void>; beforeEsm: () => void; beforeSubmit: () => void };
+async function swissModel(sequence: string, remote: RemoteProject) {
   const token = PREDICTION_CONFIG.structure.swissModelToken;
   if (!token) throw new Error('SWISS_MODEL_TOKEN is not configured for sequences longer than 400 residues.');
+  let projectId = await remote.load();
+  if (!projectId) {
+  remote.beforeSubmit();
   const submitted = await fetch('https://swissmodel.expasy.org/automodel', {
     method: 'POST', headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ target_sequences: sequence, project_title: 'DeepNEC 2.0 structure prediction' }), signal: AbortSignal.timeout(30_000), cache: 'no-store',
@@ -64,14 +69,16 @@ async function swissModel(sequence: string) {
   if (!submitted.ok) throw new Error(`SWISS-MODEL submission returned HTTP ${submitted.status}.`);
   const project = await submitted.json() as { project_id?: string };
   if (!project.project_id) throw new Error('SWISS-MODEL did not return a project identifier.');
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 10_000));
-    const statusResponse = await fetch(`https://swissmodel.expasy.org/project/${encodeURIComponent(project.project_id)}/models/summary/`, {
+  projectId = project.project_id;
+  await remote.save(projectId);
+  }
+  {
+    const statusResponse = await fetch(`https://swissmodel.expasy.org/project/${encodeURIComponent(projectId)}/models/summary/`, {
       headers: { Authorization: `Token ${token}` }, signal: AbortSignal.timeout(30_000), cache: 'no-store',
     });
     if (!statusResponse.ok) throw new Error(`SWISS-MODEL status returned HTTP ${statusResponse.status}.`);
     const status = await statusResponse.json() as { status?: string; models?: { coordinates_url?: string }[] };
-    if (status.status === 'FAILED') throw new Error('SWISS-MODEL structure prediction failed.');
+    if (status.status === 'FAILED') { await remote.failed(); throw new Error('SWISS-MODEL structure prediction failed.'); }
     if (status.status === 'COMPLETED') {
       const url = status.models?.[0]?.coordinates_url;
       if (!url) throw new Error('SWISS-MODEL completed without coordinates.');
@@ -81,23 +88,26 @@ async function swissModel(sequence: string) {
       try { return (await gunzip(buffer)).toString('utf8'); } catch { return buffer.toString('utf8'); }
     }
   }
-  throw new Error('SWISS-MODEL structure prediction timed out.');
+  throw new StructurePending('SWISS-MODEL structure prediction is still in progress.');
 }
 
-export async function predictTertiary(sequence: string) {
+export async function predictTertiary(sequence: string, remote: RemoteProject) {
   try {
+    if (await remote.load()) return { pdb: await swissModel(sequence, remote), method: 'SWISS-MODEL' };
     if (sequence.length <= 400) {
+      remote.beforeEsm();
       try {
         return { pdb: await esmFold(sequence), method: 'ESMFold' };
       } catch (error) {
         if (PREDICTION_CONFIG.structure.swissModelToken) {
-          return { pdb: await swissModel(sequence), method: 'SWISS-MODEL (ESMFold fallback)' };
+          return { pdb: await swissModel(sequence, remote), method: 'SWISS-MODEL (ESMFold fallback)' };
         }
         throw new Error(`The ESMFold service is temporarily unavailable. Please retry later. ${message(error)}`);
       }
     }
-    return { pdb: await swissModel(sequence), method: 'SWISS-MODEL' };
+    return { pdb: await swissModel(sequence, remote), method: 'SWISS-MODEL' };
   } catch (error) {
+    if (error instanceof StructurePending) throw error;
     throw new Error(`Tertiary-structure prediction failed: ${message(error)}`);
   }
 }

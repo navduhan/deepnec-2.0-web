@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { fetchStructure } from '@/lib/fetch-structure';
 
 import { CheckCircle2, Download, ExternalLink, FlaskConical, Loader2 } from 'lucide-react';
 import { withBasePath } from '@/lib/base-path';
@@ -46,9 +47,7 @@ export default function ResultsPage(){
     if(!bookmark||structureBusy)return;
     setStructureBusy(kind+':'+sampleId);setError('');
     try{
-      const response=await fetch(withBasePath('/api/structure/'+kind),{method:'POST',headers:{'Content-Type':'application/json','X-DeepNEC-Job-Token':bookmark.jobToken},body:JSON.stringify({jobId:bookmark.jobId,sampleId})});
-      const value=await response.json();
-      if(!response.ok)throw new Error(value.error||'Structure prediction failed.');
+      const value=await fetchStructure(kind,bookmark.jobId,sampleId,bookmark.jobToken);
       try{sessionStorage.setItem('deepnec_structure_view',JSON.stringify({job:bookmark.jobId,sample:sampleId,kind,data:value}));}catch{/* The viewer can retrieve the server-cached result if storage is unavailable. */}
       const fragment=new URLSearchParams({job:bookmark.jobId,token:bookmark.jobToken,sample:sampleId,kind,phase:active});
       window.location.assign(withBasePath('/structure')+'#'+fragment);
