@@ -270,7 +270,8 @@ run_existing_deployment() {
             "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" config >/dev/null
             if [[ "${ENGINE}" == podman ]]; then
                 build_podman_app
-                "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --no-build --remove-orphans
+                # Replace containers after a successful build, even when the image tag is unchanged.
+                "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --no-build --force-recreate --remove-orphans
             else
                 "${ENGINE}" compose --env-file deploy/docker.env "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
             fi
